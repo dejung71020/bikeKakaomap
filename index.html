@@ -3,23 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>서울시 전체 따릉이 지도 (클러스터러)</title>
+    <title>서울시 전체 따릉이 지도</title>
     <style>
       body {
         font-family: sans-serif;
         margin: 0;
         padding: 2rem;
+        background-color: #f4f7f6;
       }
       .info-box {
         position: absolute;
-        top: 10px;
-        left: 10px;
+        top: 20px;
+        left: 20px;
         z-index: 10;
         background: white;
         padding: 10px 20px;
         border-radius: 8px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        font-family: sans-serif;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        font-family: "Malgun Gothic", sans-serif;
       }
       .loading {
         position: absolute;
@@ -33,18 +34,20 @@
         border-radius: 10px;
         display: none;
         text-align: center;
+        font-size: 1.1rem;
       }
       #map {
         width: 100%;
         height: 80vh;
         margin-top: 2rem;
-        border: 1px solid #ccc;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
       }
     </style>
   </head>
   <body>
     <div class="info-box">
-      <b>🚲 서울시 전체 따릉이</b><br />
+      <b>🚲 서울시 전체 따릉이 스테이션</b><br />
       <span id="status">데이터를 불러오는 중...</span>
     </div>
     <div id="loading" class="loading">
@@ -59,104 +62,91 @@
     ></script>
 
     <script>
+      // ⚠️ 주의: 서울시 API 키는 노출되지 않도록 서버 측에서 관리하는 것이 좋습니다.
       const SEOUL_API_KEY = "4b5661637164656a34375359466168";
       let currentInfoWindow = null;
 
+      /**
+       * 맵 초기화 함수
+       * kakao.maps.load()가 완료된 후 호출되어야 합니다.
+       */
       function initMap() {
-        kakao.maps.load(function () {
-          const mapContainer = document.getElementById("map");
-          const defaultCenter = new kakao.maps.LatLng(37.4999802, 127.035465);
-          const mapOption = {
-            center: defaultCenter,
-            level: 1,
-          };
-          const map = new kakao.maps.Map(mapContainer, mapOption);
+        const mapContainer = document.getElementById("map");
+        const defaultCenter = new kakao.maps.LatLng(37.5665, 126.978); // 서울 시청
+        const mapOption = {
+          center: defaultCenter,
+          level: 4, // 지도를 어느 정도 확대해서 시작할지
+        };
+        const map = new kakao.maps.Map(mapContainer, mapOption);
 
-          // 1. 마커 클러스터러 생성 (마커들을 관리할 바구니)
-          const clusterer = new kakao.maps.MarkerClusterer({
-            map: map, // 마커들을 표시할 지도 객체
-            averageCenter: true, // 클러스터러 중심을 포함된 마커들의 평균 위치로 설정
-            minLevel: 5, // 지도가 이 레벨보다 확대되면 클러스터가 풀리고 마커가 보임
-          });
-
-          // ⭐️ 2. Geolocation API를 사용하여 현재 위치를 가져오는 로직 추가
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-              function (position) {
-                // 위치 정보 획득 성공 시
-                const lat = position.coords.latitude; // 위도
-                const lon = position.coords.longitude; // 경도
-
-                const locPosition = new kakao.maps.LatLng(lat, lon);
-
-                // 지도 중심을 현재 위치로 이동시키고 확대 레벨 조정
-                map.setCenter(locPosition);
-                map.setLevel(4); // 현재 위치 주변이 보이도록 확대
-
-                // 현재 위치를 나타내는 마커 표시 (선택 사항)
-                const currentMarker = new kakao.maps.Marker({
-                  map: map,
-                  position: locPosition,
-                  image: new kakao.maps.MarkerImage(
-                    "./img/rainbow.png",
-                    new kakao.maps.Size(50, 50)
-                  ),
-                });
-
-                // ⭐️ 현재 위치 마커에 클릭 이벤트 리스너 추가 (새로 추가되는 부분)
-                const currentLocContent = `<div style="padding:5px; font-size:12px;">
-                📍 <b>현재 위치</b><br>
-                위도: ${lat.toFixed(5)}<br>
-                경도: ${lon.toFixed(5)}
-            </div>`;
-
-                const currentLocInfoWindow = new kakao.maps.InfoWindow({
-                  content: currentLocContent,
-                  removable: true, // 닫기 버튼
-                });
-
-                kakao.maps.event.addListener(
-                  currentMarker,
-                  "click",
-                  function () {
-                    // 다른 마커 정보창이 열려있다면 닫기 (전역 currentInfoWindow 활용)
-                    if (currentInfoWindow) {
-                      currentInfoWindow.close();
-                    }
-
-                    // 현재 위치 정보창 열기
-                    currentLocInfoWindow.open(map, currentMarker);
-
-                    // 전역 변수 업데이트 (따릉이 마커 클릭 시 이것을 닫게 함)
-                    currentInfoWindow = currentLocInfoWindow;
-                  }
-                );
-              },
-              function (error) {
-                // 위치 정보 획득 실패 시 (에러 처리)
-                console.error("위치 정보 가져오기 실패:", error);
-                alert(
-                  "사용자 위치 정보를 가져올 수 없어 서울 시청을 중심으로 표시합니다."
-                );
-              },
-              {
-                // 옵션: 최대 대기 시간 10초
-                timeout: 10000,
-              }
-            );
-          } else {
-            // Geolocation을 지원하지 않는 브라우저일 때
-            alert("이 브라우저는 위치 정보를 지원하지 않습니다.");
-          }
-          // 데이터 가져오기 함수에 map과 clusterer를 같이 넘김
-          fetchAllBikeData(map, clusterer);
+        // 1. 마커 클러스터러 생성
+        const clusterer = new kakao.maps.MarkerClusterer({
+          map: map,
+          averageCenter: true,
+          minLevel: 5,
         });
+
+        // 2. Geolocation API를 사용하여 현재 위치를 가져오는 로직
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            function (position) {
+              const lat = position.coords.latitude;
+              const lon = position.coords.longitude;
+              const locPosition = new kakao.maps.LatLng(lat, lon);
+
+              map.setCenter(locPosition);
+              map.setLevel(4); // 현재 위치 주변이 보이도록 확대
+
+              // 현재 위치 마커 표시
+              const currentMarker = new kakao.maps.Marker({
+                map: map,
+                position: locPosition,
+                image: new kakao.maps.MarkerImage(
+                  "./img/rainbow.png", // ⚠️ 이미지 파일 경로가 올바른지 확인하세요.
+                  new kakao.maps.Size(50, 50)
+                ),
+              });
+
+              const currentLocContent = `<div style="padding:5px; font-size:12px;">
+                📍 <b>현재 위치</b>
+              </div>`;
+              const currentLocInfoWindow = new kakao.maps.InfoWindow({
+                content: currentLocContent,
+                removable: true,
+              });
+
+              // 현재 위치 마커 클릭 이벤트
+              kakao.maps.event.addListener(currentMarker, "click", function () {
+                if (currentInfoWindow) {
+                  currentInfoWindow.close();
+                }
+                currentLocInfoWindow.open(map, currentMarker);
+                currentInfoWindow = currentLocInfoWindow;
+              });
+            },
+            function (error) {
+              // 위치 정보 획득 실패 시 (디폴트 위치 사용)
+              console.error("위치 정보 가져오기 실패:", error);
+            },
+            {
+              timeout: 10000,
+            }
+          );
+        }
+
+        // 3. 따릉이 데이터 가져오기 시작
+        fetchAllBikeData(map, clusterer);
       }
 
+      /**
+       * 서울시 API에서 전체 따릉이 데이터를 분할하여 가져오는 함수 (Promise.all 사용)
+       * @param {kakao.maps.Map} map 카카오 지도 객체
+       * @param {kakao.maps.MarkerClusterer} clusterer 마커 클러스터러 객체
+       */
       async function fetchAllBikeData(map, clusterer) {
         document.getElementById("loading").style.display = "block";
 
-        // 데이터 범위 (3000개까지)
+        // API 호출 범위 (최대 4000개까지)
         const ranges = [
           { start: 1, end: 1000 },
           { start: 1001, end: 2000 },
@@ -168,6 +158,7 @@
 
         try {
           const requests = ranges.map((range) =>
+            // ⚠️ GitHub Pages에서 HTTP 호출 시 Mixed Content 오류 발생 가능성 있음
             fetch(
               `http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/bikeList/${range.start}/${range.end}/`
             ).then((res) => res.json())
@@ -185,35 +176,33 @@
             "status"
           ).innerText = `총 ${allStations.length}개소 (클러스터링 적용)`;
 
-          // 마커 그리기 함수 호출
           drawMarkers(map, clusterer, allStations);
         } catch (error) {
-          console.error("에러:", error);
-          alert("데이터 로드 실패");
+          console.error("데이터 로드 에러:", error);
+          alert("따릉이 데이터 로드에 실패했습니다. (API 또는 CORS 문제)");
         } finally {
           document.getElementById("loading").style.display = "none";
         }
       }
 
+      /**
+       * 받아온 데이터로 마커를 생성하고 클러스터러에 추가하는 함수
+       */
       function drawMarkers(map, clusterer, stations) {
         let markers = [];
 
         stations.forEach((station) => {
-          // ⭐️ 1. 주차된 자전거 대수를 숫자로 변환 (API 데이터는 문자열 형태)
           const bikeCount = parseInt(station.parkingBikeTotCnt);
           let makerImagePath = "";
           let imageSize = new kakao.maps.Size(32, 35);
 
-          // ⭐️ 2. 자전거 대수에 따른 조건문 구현
+          // 자전거 대수에 따른 마커 이미지 선택 로직
           if (bikeCount === 0) {
-            // 🟥 재고 없음: 빨간색
-            makerImagePath = "./img/red.png";
+            makerImagePath = "./img/red.png"; // 재고 없음 (빨강)
           } else if (bikeCount >= 1 && bikeCount <= 4) {
-            // 🟨 재고 부족: 주황색 (노란색에 가까운 이미지 사용)
-            makerImagePath = "./img/yellow.png";
+            makerImagePath = "./img/yellow.png"; // 재고 부족 (주황/노랑)
           } else {
-            // 🟩 재고 충분: 초록색
-            makerImagePath = "./img/green.png";
+            makerImagePath = "./img/green.png"; // 재고 충분 (초록)
           }
 
           const markerImage = new kakao.maps.MarkerImage(
@@ -221,31 +210,33 @@
             imageSize
           );
 
-          // 마커 생성 시 `image` 속성 지정
           const marker = new kakao.maps.Marker({
             position: new kakao.maps.LatLng(
               station.stationLatitude,
               station.stationLongitude
             ),
             title: station.stationName,
-            image: markerImage, // ⭐️ 생성한 이미지 적용
+            image: markerImage,
           });
 
-          // 인포윈도우 내용은 동일 (색상도 자전거 수에 따라 다르게 표시됩니다)
+          // 인포윈도우 내용 설정
           const countColor =
             bikeCount === 0 ? "red" : bikeCount <= 4 ? "orange" : "green";
           const infowindow = new kakao.maps.InfoWindow({
-            content: `<div style="padding:5px; font-size:12px;">${station.stationName}<br>🚲 <span style="color:${countColor}; font-weight: bold;">${bikeCount}</span>대</div>`,
+            content: `<div style="padding:5px; font-size:12px;">
+                ${station.stationName}<br>
+                🚲 <span style="color:${countColor}; font-weight: bold;">${bikeCount}</span>대
+            </div>`,
             removable: true,
           });
 
+          // 마커 클릭 시 이벤트 리스너
           kakao.maps.event.addListener(marker, "click", function () {
             if (currentInfoWindow) {
-              currentInfoWindow.close();
+              currentInfoWindow.close(); // 이전에 열린 정보창 닫기
             }
-
             infowindow.open(map, marker);
-            currentInfoWindow = infowindow;
+            currentInfoWindow = infowindow; // 현재 열린 정보창 업데이트
           });
 
           markers.push(marker);
@@ -254,7 +245,12 @@
         clusterer.addMarkers(markers);
       }
 
+      // ************************************************************
+      // 2. 카카오맵 SDK 로드 후 initMap 호출 (오류 해결 핵심)
+      // ************************************************************
       window.onload = function () {
+        // window.onload: HTML 문서 로딩이 완료된 시점
+        // kakao.maps.load(): 카카오맵 라이브러리 로딩이 완료된 시점 (autoload=false 때문)
         kakao.maps.load(function () {
           initMap();
         });
