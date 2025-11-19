@@ -168,7 +168,7 @@
         try {
           const requests = ranges.map((range) =>
             fetch(
-              `https://openapi.seoul.go.kr/${SEOUL_API_KEY}/json/bikeList/${range.start}/${range.end}/`
+              `https://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/bikeList/${range.start}/${range.end}/`
             ).then((res) => res.json())
           );
 
@@ -261,7 +261,3 @@
     </script>
   </body>
 </html>
-
-
-
-
