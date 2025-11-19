@@ -53,6 +53,7 @@
     <div id="map"></div>
 
     <script
+      defer
       type="text/javascript"
       src="//dapi.kakao.com/v2/maps/sdk.js?appkey=3b712df3fcec0d229c24001d23d1d86c&autoload=false&libraries=services,clusterer"
     ></script>
@@ -253,7 +254,11 @@
         clusterer.addMarkers(markers);
       }
 
-      window.onload = initMap;
+      window.onload = function () {
+        kakao.maps.load(function () {
+          initMap();
+        });
+      };
     </script>
   </body>
 </html>
